@@ -125,6 +125,9 @@
     <Content Include="module.manifest" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\CommonAssemblyInfo.cs">
+      <Link>Properties\CommonAssemblyInfo.cs</Link>
+    </Compile>
     <Compile Include="Helpers\RoundingHelper.cs" />
     <Compile Include="Managers\StripeCheckoutPaymentMethod.cs" />
     <Compile Include="Module.cs" />

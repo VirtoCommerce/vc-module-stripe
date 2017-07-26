@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 
 [assembly: AssemblyCompany("VirtoCommerce")]
 [assembly: AssemblyProduct("Virto Commerce Stripe Module")]
-[assembly: AssemblyCopyright("Copyright © VirtoCommerce 2011-2017")]
+[assembly: AssemblyCopyright("Copyright © VirtoCommerce 2017")]
 
 [assembly: AssemblyFileVersion("1.0.0.0")]
 [assembly: AssemblyVersion("1.0.0.0")]
