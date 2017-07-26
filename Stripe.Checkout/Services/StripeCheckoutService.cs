@@ -53,7 +53,7 @@ namespace Stripe.Checkout.Services
                 return store.Url;
             }
 
-            return store.Id;
+            return "";
         }
     }
 }
