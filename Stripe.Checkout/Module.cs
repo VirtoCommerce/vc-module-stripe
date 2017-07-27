@@ -30,7 +30,7 @@ namespace Stripe.Checkout
                 var paymentMethod = new StripeCheckoutPaymentMethod(_container.Resolve<IStripeCheckoutService>());
                 paymentMethod.Name = "Stripe Checkout Gateway";
                 paymentMethod.Description = "Stripe Checkout payment gateway integration";
-                paymentMethod.LogoUrl = "";
+                paymentMethod.LogoUrl = "https://raw.githubusercontent.com/VirtoCommerce/vc-module-stripe/master/Stripe.Checkout/Content/logo.png";
                 paymentMethod.Settings = settingsManager.GetModuleSettings("Stripe.Checkout");
                 return paymentMethod;
             };
