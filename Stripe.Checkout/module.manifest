@@ -7,7 +7,7 @@
         <dependency id="VirtoCommerce.Core" version="2.24.4" />
     </dependencies>
 
-    <title>Stripe.Checkout</title>
+    <title>Stripe Payment Gateway</title>
     <description>APIs and UI for Stripe payment gateway (using Elements and Stripe.js)</description>
     <authors>
         <author>Virto Commerce</author>
