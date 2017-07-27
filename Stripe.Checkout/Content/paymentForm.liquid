@@ -63,14 +63,6 @@
         width: 100%;
         }
 
-        .submitButton:focus {
-        background: #555ABF;
-        }
-
-        .submitButton:active {
-        background: #43458B;
-        }
-
         .outcome {
         float: left;
         width: 100%;
@@ -127,10 +119,9 @@
                 <div id="card-cvc-element" class="field"></div>
             </label>
         </div>
-        <button class="btn btn-default submitButton" type="submit" ng-click="startPostprocess=true;" ng-class="{ 'btn--loading': startPostprocess }">
-            <span class="btn__content visually-hidden-on-mobile">Submit Payment</span>
-            <i class="btn__content shown-on-mobile icon icon--arrow"></i>
-            <i class="btn__spinner icon icon--button-spinner"></i>
+        <button id="processPayment" class="vc-btn submitButton" type="submit">
+            <span class="btn-text">Submit Payment</span>
+            <span class="btn-loading"></span>
         </button>
         <div class="outcome">
             <span id="card-errors" class="form-error"></span>
@@ -202,6 +193,9 @@
         form.addEventListener('submit', function (event) {
         event.preventDefault();
 
+        var paymentButton = document.getElementById('processPayment');
+        paymentButton.className += " loading";
+
         var cardHolderName = document.getElementById('cardholder-name').value;
         var cardData = {
         name: cardHolderName
@@ -211,6 +205,7 @@
         if (result.error) {
         var errorElement = document.getElementById('card-errors');
         errorElement.textContent = result.error.message;
+        paymentButton.className = paymentButton.className.replace("loading", "");
         } else {
         stripeTokenHandler(result.token);
         }
