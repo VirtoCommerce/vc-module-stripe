@@ -121,8 +121,7 @@ namespace Stripe.Checkout.Managers
                 SourceTokenOrExistingSourceId = stripeTokenId
             };
 
-            var apiSecretKey = ApiSecretKey;
-            var chargeService = new StripeChargeService(apiSecretKey);
+            var chargeService = new StripeChargeService(ApiSecretKey);
             var chargeResult = chargeService.Create(charge);
 
             if (!string.IsNullOrEmpty(chargeResult.FailureCode))
@@ -135,6 +134,8 @@ namespace Stripe.Checkout.Managers
             result.OuterId = chargeResult.Id;
             result.OrderId = context.Order.Id;
             result.NewPaymentStatus = PaymentStatus.Paid;
+            context.Payment.PaymentStatus = PaymentStatus.Paid;
+            context.Payment.OuterId = result.OuterId;
 
             return result;
         }
