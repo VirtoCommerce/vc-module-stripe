@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Reflection;
 using DotLiquid;
 using Stripe.Checkout.Core.Model;
@@ -7,6 +8,7 @@ using VirtoCommerce.Domain.Store.Model;
 
 namespace Stripe.Checkout.Services
 {
+    [Obsolete]
     public class StripeCheckoutService : IStripeCheckoutService
     {
         /// <summary>

@@ -1,23 +1,22 @@
 ﻿using System;
 using System.Collections.Specialized;
-using Stripe.Checkout.Core.Model;
-using Stripe.Checkout.Core.Services;
 using Stripe.Checkout.Helpers;
+using VirtoCommerce.Domain.Order.Model;
 using VirtoCommerce.Domain.Payment.Model;
+using VirtoCommerce.Domain.Store.Model;
 
 namespace Stripe.Checkout.Managers
 {
     public class StripeCheckoutPaymentMethod : PaymentMethod
     {
-        private const string _stripeTokenAttrName = "stripeToken";
+        private const string _stripeTokenAttrName = "token";
 
         private const string _stripeModeStoreSetting = "Stripe.Checkout.Mode";
+        private const string _publishableKeySetting = "Stripe.Checkout.ApiPublishableKey";
+        private const string _secretKeySetting = "Stripe.Checkout.ApiSecretKey";
+        private const string _paymentMode = "Stripe.Checkout.PaymentActionType";
 
-        private const string _livesPublishableKeySetting = "Stripe.Checkout.ApiPublishableKeyLive";
-        private const string _liveSecretKeySetting = "Stripe.Checkout.ApiSecretKeyLive";
-
-        private const string _testPublishableKeySetting = "Stripe.Checkout.ApiPublishableKeyTest";
-        private const string _testSecretKeySetting = "Stripe.Checkout.ApiSecretKeyTest";
+        private const string _saleMode = "Sale";
 
         private string ApiMode
         {
@@ -31,10 +30,7 @@ namespace Stripe.Checkout.Managers
         {
             get
             {
-                if (ApiMode.Equals("test"))
-                    return GetSetting(_testPublishableKeySetting);
-
-               return GetSetting(_livesPublishableKeySetting);
+               return GetSetting(_publishableKeySetting);
             }
         }
 
@@ -42,16 +38,26 @@ namespace Stripe.Checkout.Managers
         {
             get
             {
-                if (ApiMode.Equals("test"))
-                    return GetSetting(_testSecretKeySetting);
-
-                return GetSetting(_liveSecretKeySetting);
+                return GetSetting(_secretKeySetting);
             }
+        }
+
+        public string PaymentMode
+        {
+            get
+            {
+                return GetSetting(_paymentMode);
+            }
+        }
+
+        public bool IsSaleMode
+        {
+            get { return PaymentMode == _saleMode; }
         }
 
         public override PaymentMethodType PaymentMethodType
         {
-            get { return PaymentMethodType.PreparedForm; }
+            get { return PaymentMethodType.Unknown; }
         }
 
         public override PaymentMethodGroupType PaymentMethodGroupType
@@ -59,40 +65,22 @@ namespace Stripe.Checkout.Managers
             get { return PaymentMethodGroupType.Alternative; }
         }
 
-        private readonly IStripeCheckoutService _stripeCheckoutService;
-
-        public StripeCheckoutPaymentMethod(IStripeCheckoutService stripeCheckoutService) 
-            : base("StripeCheckout")
+        public StripeCheckoutPaymentMethod() : base("StripeCheckout")
         {
-            _stripeCheckoutService = stripeCheckoutService;
         }
 
         public override ProcessPaymentResult ProcessPayment(ProcessPaymentEvaluationContext context)
         {
             var result = new ProcessPaymentResult();
-            if (context.Order != null && context.Store != null)
+
+            var stripeTokenId = GetTokenId(context.Parameters);
+            if (string.IsNullOrEmpty(stripeTokenId))
             {
-                result = PrepareFormContent(context);
+                result.Error = "NoStripeTokenPresent";
+                return result;
             }
-            return result;
-        }
 
-        private ProcessPaymentResult PrepareFormContent(ProcessPaymentEvaluationContext context)
-        {
-            var formContent = _stripeCheckoutService.GetCheckoutFormContent(new StripeCheckoutSettings
-            {
-                PublishableKey = ApiPublishableKey,
-                TokenAttributeName = _stripeTokenAttrName,
-                Order = context.Order,
-                Store = context.Store,
-            });
-
-            var result = new ProcessPaymentResult();
-            result.IsSuccess = true;
-            result.NewPaymentStatus = context.Payment.PaymentStatus = PaymentStatus.Pending;
-            result.HtmlForm = formContent;
-            result.OuterId = null;
-
+            result = ProcessPayment(context.Payment, context.Store, stripeTokenId);
             return result;
         }
 
@@ -100,52 +88,119 @@ namespace Stripe.Checkout.Managers
         {
             var result = new PostProcessPaymentResult();
 
-            if (context.Parameters == null || !context.Parameters.HasKeys())
-            {
-                result.ErrorMessage = "NoStripeTokenPresent";
-                return result;
-            }
+            var stripeTokenId = GetTokenId(context.Parameters);
 
-            var stripeTokenId = context.Parameters.Get(_stripeTokenAttrName);
-            if (stripeTokenId == null)
-            {
-                result.ErrorMessage = "NoStripeTokenPresent";
-                return result;
-            }
-
-            var charge = new StripeChargeCreateOptions
-            {
-                Amount = (context.Payment.Sum * 100).Round(),
-                Description = context.Store.Id,
-                Currency = context.Store.DefaultCurrency.ToLower(),
-                SourceTokenOrExistingSourceId = stripeTokenId
-            };
-
-            var chargeService = new StripeChargeService(ApiSecretKey);
-            var chargeResult = chargeService.Create(charge);
-
-            if (!string.IsNullOrEmpty(chargeResult.FailureCode))
-            {
-                result.ErrorMessage = chargeResult.FailureCode;
-                return result;
-            }
-
-            result.IsSuccess = true;
-            result.OuterId = chargeResult.Id;
+            var  processPaymentResult = ProcessPayment(context.Payment, context.Store, stripeTokenId);
+            result.IsSuccess = processPaymentResult.IsSuccess;
+            result.OuterId = processPaymentResult.OuterId;
+            result.NewPaymentStatus = processPaymentResult.NewPaymentStatus;
             result.OrderId = context.Order.Id;
-            result.NewPaymentStatus = PaymentStatus.Paid;
-            context.Payment.PaymentStatus = PaymentStatus.Paid;
-            context.Payment.OuterId = result.OuterId;
 
             return result;
         }
 
-        public override VoidProcessPaymentResult VoidProcessPayment(VoidProcessPaymentEvaluationContext context)
+        private ProcessPaymentResult ProcessPayment(PaymentIn payment, Store store, string token) 
         {
-            throw new NotImplementedException();
+            var result = new ProcessPaymentResult();
+            
+            var stripeChargeResult = CreateStipeCharge(payment, store, token, IsSaleMode);
+            result.OuterId = payment.OuterId = stripeChargeResult.Id;
+
+            if (string.IsNullOrEmpty(stripeChargeResult.FailureCode))
+            {
+                result.NewPaymentStatus = PaymentStatus.Paid;
+                result.IsSuccess = true;
+
+                if (IsSaleMode)
+                {
+                    result.NewPaymentStatus = payment.PaymentStatus = PaymentStatus.Paid;
+                    payment.IsApproved = true;
+                    payment.CapturedDate = DateTime.UtcNow;
+                }
+                else
+                {
+                    result.NewPaymentStatus = payment.PaymentStatus = PaymentStatus.Authorized;
+                    payment.AuthorizedDate = DateTime.UtcNow;
+                }
+            }
+            else
+            {
+                payment.Comment = $"Stripe charge failed. Charge Id: {stripeChargeResult.Id}, " +
+                                          $"Error code: {stripeChargeResult.FailureCode}, " +
+                                          $"Error Message: {stripeChargeResult.FailureMessage}";
+
+                result.Error = stripeChargeResult.FailureMessage;
+            }
+
+            result.IsSuccess = true;
+            return result;
+        }
+
+        private StripeCharge CreateStipeCharge(PaymentIn payment, Store store, string stripeTokenId, bool capture = true)
+        {
+            var charge = new StripeChargeCreateOptions
+            {
+                Amount = payment.Sum.ToInt(),
+                Description = store.Id,
+                Currency = store.DefaultCurrency.ToLower(),
+                SourceTokenOrExistingSourceId = stripeTokenId,
+                Capture = capture
+            };
+
+            var chargeResult = new StripeCharge();
+            try
+            {
+                var chargeService = new StripeChargeService(ApiSecretKey);
+                chargeResult = chargeService.Create(charge);
+            }
+            catch (StripeException ex)
+            {
+                chargeResult.Id = ex.StripeError.ChargeId;
+                chargeResult.FailureCode = ex.StripeError.Code;
+                chargeResult.FailureMessage = ex.StripeError.Message;
+            }
+            return chargeResult;
         }
 
         public override CaptureProcessPaymentResult CaptureProcessPayment(CaptureProcessPaymentEvaluationContext context)
+        {
+            var result = new CaptureProcessPaymentResult();
+            if (string.IsNullOrEmpty(context.Payment.OuterId))
+            {
+                result.ErrorMessage = "NoStripePaymentIdPresent";
+                return result;
+            }
+
+            var chargeresult = CaptureCharge(context.Payment.OuterId);
+
+            result.NewPaymentStatus = context.Payment.PaymentStatus = PaymentStatus.Paid;
+            context.Payment.CapturedDate = DateTime.UtcNow;
+            context.Payment.IsApproved = true;
+            result.IsSuccess = true;
+            result.OuterId = context.Payment.OuterId = chargeresult.Id;
+
+            return result;
+        }
+
+        private StripeCharge CaptureCharge(string stripeChargeId)
+        {
+            var chargeResult = new StripeCharge();
+            try
+            {
+                var chargeService = new StripeChargeService(ApiSecretKey);
+                chargeResult = chargeService.Capture(stripeChargeId);
+            }
+            catch (StripeException ex)
+            {
+                chargeResult.Id = ex.StripeError.ChargeId;
+                chargeResult.FailureCode = ex.StripeError.Code;
+                chargeResult.FailureMessage = ex.StripeError.Message;
+            }
+            return chargeResult;
+
+        }
+
+        public override VoidProcessPaymentResult VoidProcessPayment(VoidProcessPaymentEvaluationContext context)
         {
             throw new NotImplementedException();
         }
@@ -159,8 +214,18 @@ namespace Stripe.Checkout.Managers
         {
             return new ValidatePostProcessRequestResult
             {
-                IsSuccess = true
+                IsSuccess = GetTokenId(queryString) != null
             };
+        }
+
+        private string GetTokenId(NameValueCollection queryString)
+        {
+            if (queryString == null || !queryString.HasKeys())
+            {
+                return null;
+            }
+
+            return queryString.Get(_stripeTokenAttrName);
         }
     }
 }

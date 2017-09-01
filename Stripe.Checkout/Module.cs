@@ -1,9 +1,7 @@
 ﻿using System;
 using Microsoft.Practices.ServiceLocation;
 using Microsoft.Practices.Unity;
-using Stripe.Checkout.Core.Services;
 using Stripe.Checkout.Managers;
-using Stripe.Checkout.Services;
 using VirtoCommerce.Domain.Payment.Services;
 using VirtoCommerce.Platform.Core.Modularity;
 using VirtoCommerce.Platform.Core.Settings;
@@ -21,13 +19,11 @@ namespace Stripe.Checkout
 
         public override void Initialize()
         {
-            _container.RegisterType<IStripeCheckoutService, StripeCheckoutService>();
-
             var settingsManager = ServiceLocator.Current.GetInstance<ISettingsManager>();
 
             Func<StripeCheckoutPaymentMethod> stripePaymentMethogd = () =>
             {
-                var paymentMethod = new StripeCheckoutPaymentMethod(_container.Resolve<IStripeCheckoutService>());
+                var paymentMethod = new StripeCheckoutPaymentMethod();
                 paymentMethod.Name = "Stripe Checkout Gateway";
                 paymentMethod.Description = "Stripe Checkout payment gateway integration";
                 paymentMethod.LogoUrl = "https://raw.githubusercontent.com/VirtoCommerce/vc-module-stripe/master/Stripe.Checkout/Content/logo.png";

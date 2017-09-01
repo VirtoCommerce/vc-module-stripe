@@ -8,5 +8,10 @@ namespace Stripe.Checkout.Helpers
         {
             return (int)Math.Round(value, MidpointRounding.AwayFromZero);
         }
+
+        public static int ToInt(this decimal value)
+        {
+            return (value * 100).Round();
+        }
     }
 }

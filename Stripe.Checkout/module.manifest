@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <module>
     <id>Stripe.Checkout</id>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <platformVersion>2.13.10</platformVersion>
     <dependencies>
         <dependency id="VirtoCommerce.Core" version="2.24.4" />
@@ -20,32 +20,18 @@
     <moduleType>Stripe.Checkout.Module, Stripe.Checkout</moduleType>
   
     <settings>
-        <group name="Payment methods|Stripe|TestApiKeys">
+        <group name="Payment methods|Stripe|ApiKeys">
             <setting>
-                <name>Stripe.Checkout.ApiPublishableKeyTest</name>
+                <name>Stripe.Checkout.ApiPublishableKey</name>
                 <valueType>string</valueType>
                 <title>Test Publishable key</title>
-                <description>Stripe API Publishable Key for testing</description>
+                <description>Stripe API Publishable Key (for frontend)</description>
             </setting>
             <setting>
-                <name>Stripe.Checkout.ApiSecretKeyTest</name>
+                <name>Stripe.Checkout.ApiSecretKey</name>
                 <valueType>secureString</valueType>
                 <title>Test Secret key</title>
-                <description>Stripe API Secret Key for testing</description>
-            </setting>
-        </group>
-        <group name="Payment methods|Stripe|LiveApiKeys">
-            <setting>
-                <name>Stripe.Checkout.ApiPublishableKeyLive</name>
-                <valueType>string</valueType>
-                <title>Publishable key</title>
-                <description>Stripe API Live Publishable Key</description>
-            </setting>
-            <setting>
-                <name>Stripe.Checkout.ApiSecretKeyLive</name>
-                <valueType>secureString</valueType>
-                <title>Secret key</title>
-                <description>Stripe API Live Secret Key</description>
+                <description>Stripe API Secret Key (for backed)</description>
             </setting>
         </group>
         <group name="Payment methods|Stripe|General">
@@ -61,11 +47,15 @@
                 <description>Payment gateway mode</description>
             </setting>
             <setting>
-                <name>Stripe.Checkout.FormAction</name>
+                <name>Stripe.Checkout.PaymentActionType</name>
                 <valueType>string</valueType>
-                <defaultValue>cart/externalpaymentcallback</defaultValue>
-                <title>Process Payment action</title>
-                <description>If the Stripe token successfuly created redirect to this URL to process payment. Default is {storefront URL}/cart/externalpaymentcallback</description>
+                <allowedValues>
+                    <value>Authorization/Capture</value>
+                    <value>Sale</value>
+                </allowedValues>
+                <defaultValue>Sale</defaultValue>
+                <title>Payment action type</title>
+                <description>Action type of payment</description>
             </setting>
         </group>
     </settings>
