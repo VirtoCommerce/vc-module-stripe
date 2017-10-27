@@ -10,6 +10,7 @@ namespace Stripe.Checkout.Managers
     public class StripeCheckoutPaymentMethod : PaymentMethod
     {
         private const string _stripeTokenAttrName = "token";
+        private const string _stripeMethodAttrName = "stripe";
 
         private const string _stripeModeStoreSetting = "Stripe.Checkout.Mode";
         private const string _publishableKeySetting = "Stripe.Checkout.ApiPublishableKey";
@@ -30,7 +31,7 @@ namespace Stripe.Checkout.Managers
         {
             get
             {
-               return GetSetting(_publishableKeySetting);
+                return GetSetting(_publishableKeySetting);
             }
         }
 
@@ -73,7 +74,7 @@ namespace Stripe.Checkout.Managers
         {
             var result = new ProcessPaymentResult();
 
-            var stripeTokenId = GetTokenId(context.Parameters);
+            var stripeTokenId = GetTokenId(context.Parameters, _stripeTokenAttrName);
             if (string.IsNullOrEmpty(stripeTokenId))
             {
                 result.Error = "NoStripeTokenPresent";
@@ -88,9 +89,9 @@ namespace Stripe.Checkout.Managers
         {
             var result = new PostProcessPaymentResult();
 
-            var stripeTokenId = GetTokenId(context.Parameters);
+            var stripeTokenId = GetTokenId(context.Parameters, _stripeTokenAttrName);
 
-            var  processPaymentResult = ProcessPayment(context.Payment, context.Store, stripeTokenId);
+            var processPaymentResult = ProcessPayment(context.Payment, context.Store, stripeTokenId);
             result.IsSuccess = processPaymentResult.IsSuccess;
             result.OuterId = processPaymentResult.OuterId;
             result.NewPaymentStatus = processPaymentResult.NewPaymentStatus;
@@ -99,10 +100,10 @@ namespace Stripe.Checkout.Managers
             return result;
         }
 
-        private ProcessPaymentResult ProcessPayment(PaymentIn payment, Store store, string token) 
+        private ProcessPaymentResult ProcessPayment(PaymentIn payment, Store store, string token)
         {
             var result = new ProcessPaymentResult();
-            
+
             var stripeChargeResult = CreateStipeCharge(payment, store, token, IsSaleMode);
             result.OuterId = payment.OuterId = stripeChargeResult.Id;
 
@@ -126,8 +127,8 @@ namespace Stripe.Checkout.Managers
             else
             {
                 payment.Comment = $"Stripe charge failed. Charge Id: {stripeChargeResult.Id}, " +
-                                          $"Error code: {stripeChargeResult.FailureCode}, " +
-                                          $"Error Message: {stripeChargeResult.FailureMessage}";
+                                  $"Error code: {stripeChargeResult.FailureCode}, " +
+                                  $"Error Message: {stripeChargeResult.FailureMessage}";
 
                 result.Error = stripeChargeResult.FailureMessage;
             }
@@ -212,20 +213,23 @@ namespace Stripe.Checkout.Managers
 
         public override ValidatePostProcessRequestResult ValidatePostProcessRequest(NameValueCollection queryString)
         {
+            var token = GetTokenId(queryString, _stripeTokenAttrName);
+            var method = GetTokenId(queryString, "method");
+
             return new ValidatePostProcessRequestResult
             {
-                IsSuccess = GetTokenId(queryString) != null
+                IsSuccess = token != null && !string.IsNullOrEmpty(method) && method.Equals(_stripeMethodAttrName, StringComparison.OrdinalIgnoreCase)
             };
         }
 
-        private string GetTokenId(NameValueCollection queryString)
+        private string GetTokenId(NameValueCollection queryString, string paramName)
         {
             if (queryString == null || !queryString.HasKeys())
             {
                 return null;
             }
 
-            return queryString.Get(_stripeTokenAttrName);
+            return queryString.Get(paramName);
         }
     }
 }
